@@ -30,17 +30,20 @@ def valid_resource():
 def invalid_resource():
     return '/admin'
 
+def create_url(user_id, resource):
+    return f'http://{HOST}{resource}?{HTTP_QUERY}&uid={user_id}'
+
 @pytest.fixture
 def valid_url(valid_user_id, valid_resource):
-    return f'http://{HOST}{valid_resource}?{HTTP_QUERY}&uid={valid_user_id}'
+    return create_url(valid_user_id, valid_resource)
 
 @pytest.fixture
 def url_with_invalid_resource(valid_user_id, invalid_resource):
-    return f'http://{HOST}{invalid_resource}?{HTTP_QUERY}&uid={valid_user_id}'
+    return create_url(valid_user_id, invalid_resource)
 
 @pytest.fixture
 def url_with_invalid_user_id(invalid_user_id, valid_resource):
-    return f'http://{HOST}{valid_resource}?{HTTP_QUERY}&uid={invalid_user_id}'
+    return create_url(invalid_user_id, valid_resource)
 
 @pytest.fixture
 def url_without_user_id(valid_resource):
@@ -80,26 +83,25 @@ def invalid_secret_key():
     """Fixture to provide a invalid secret key."""
     return 'superman'
 
+def generate_signature(secret_key, dateTime, resource):
+    headerToSign = f"{HTTP_REQUEST}\n\n{CONTENT_TYPE}\n{dateTime}\n{resource}"
+    signature = hmac.new(secret_key.encode(), headerToSign.encode(), hashlib.sha1)
+    return base64.b64encode(signature.digest()).decode()
+
 @pytest.fixture
 def valid_signature(valid_secret_key, valid_dateTime, valid_resource):
     """Fixture to generate the request signature."""
-    headerToSign = f"{HTTP_REQUEST}\n\n{CONTENT_TYPE}\n{valid_dateTime}\n{valid_resource}"
-    signature = hmac.new(valid_secret_key.encode(), headerToSign.encode(), hashlib.sha1)
-    return base64.b64encode(signature.digest()).decode()
+    return generate_signature(valid_secret_key, valid_dateTime, valid_resource)
 
 @pytest.fixture
 def signature_with_invalid_secret_key(invalid_secret_key, valid_dateTime, valid_resource):
     """Fixture to generate the request signature."""
-    headerToSign = f"{HTTP_REQUEST}\n\n{CONTENT_TYPE}\n{valid_dateTime}\n{valid_resource}"
-    signature = hmac.new(invalid_secret_key.encode(), headerToSign.encode(), hashlib.sha1)
-    return base64.b64encode(signature.digest()).decode()
+    return generate_signature(invalid_secret_key, valid_dateTime, valid_resource)
 
 @pytest.fixture
 def signature_with_invalid_datetime(valid_secret_key, invalid_dateTime, valid_resource):
     """Fixture to generate the request signature."""
-    headerToSign = f"{HTTP_REQUEST}\n\n{CONTENT_TYPE}\n{invalid_dateTime}\n{valid_resource}"
-    signature = hmac.new(valid_secret_key.encode(), headerToSign.encode(), hashlib.sha1)
-    return base64.b64encode(signature.digest()).decode()
+    return generate_signature(valid_secret_key, invalid_dateTime, valid_resource)
 
 @pytest.fixture
 def signature_with_invalid_http_method(valid_secret_key, valid_dateTime, valid_resource):
@@ -108,59 +110,38 @@ def signature_with_invalid_http_method(valid_secret_key, valid_dateTime, valid_r
     signature = hmac.new(valid_secret_key.encode(), headerToSign.encode(), hashlib.sha1)
     return base64.b64encode(signature.digest()).decode()
 
-@pytest.fixture
-def valid_header(valid_dateTime, valid_signature, valid_access_key):
-    """Fixture to generate the request header."""
+def create_header(dateTime, signature, access_key):
     headers = {
         'Content-Type': CONTENT_TYPE,
-        'Date': valid_dateTime,
-        'Authorization': f'AWS {valid_access_key}:{valid_signature}',
+        'Date': dateTime,
+        'Authorization': f'AWS {access_key}:{signature}',
         'Host': HOST
     }
     return headers
+
+@pytest.fixture
+def valid_header(valid_dateTime, valid_signature, valid_access_key):
+    """Fixture to generate the request header."""
+    return create_header(valid_dateTime, valid_signature, valid_access_key)
 
 @pytest.fixture
 def header_with_invalid_secret_key(valid_dateTime, signature_with_invalid_secret_key, valid_access_key):
     """Fixture to generate the request header."""
-    headers = {
-        'Content-Type': CONTENT_TYPE,
-        'Date': valid_dateTime,
-        'Authorization': f'AWS {valid_access_key}:{signature_with_invalid_secret_key}',
-        'Host': HOST
-    }
-    return headers
+    return create_header(valid_dateTime, signature_with_invalid_secret_key, valid_access_key)
 
 @pytest.fixture
 def header_with_invalid_access_key(valid_dateTime, valid_signature, invalid_access_key):
     """Fixture to generate the request header."""
-    headers = {
-        'Content-Type': CONTENT_TYPE,
-        'Date': valid_dateTime,
-        'Authorization': f'AWS {invalid_access_key}:{valid_signature}',
-        'Host': HOST
-    }
-    return headers
+    return create_header(valid_dateTime, valid_signature, invalid_access_key)
 
 @pytest.fixture
 def header_with_invalid_dateTime(invalid_dateTime, valid_signature, valid_access_key):
     """Fixture to generate the request header."""
-    headers = {
-        'Content-Type': CONTENT_TYPE,
-        'Date': invalid_dateTime,
-        'Authorization': f'AWS {valid_access_key}:{valid_signature}',
-        'Host': HOST
-    }
-    return headers
+    return create_header(invalid_dateTime, valid_signature, valid_access_key)
 
 @pytest.fixture
 def header_with_invalid_http_method(valid_dateTime, signature_with_invalid_http_method, valid_access_key):
     """Fixture to generate the request header."""
-    headers = {
-        'Content-Type': CONTENT_TYPE,
-        'Date': valid_dateTime,
-        'Authorization': f'AWS {valid_access_key}:{signature_with_invalid_http_method}',
-        'Host': HOST
-    }
-    return headers
+    return create_header(valid_dateTime, signature_with_invalid_http_method, valid_access_key)
 
 
